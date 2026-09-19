@@ -15,5 +15,6 @@ source "$OMARCHY_PATH/default/bash/rc"
 
 alias hk='omarchy menu keybindings --print'
 alias lg='lazygit'
+alias ag='alias | grep'
 
 export PATH="$HOME/bin:$PATH"
