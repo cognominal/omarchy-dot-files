@@ -1,0 +1,12 @@
+[submodule "omarchy/plugins/davedes.workspace-restorer"]
+	path = omarchy/plugins/davedes.workspace-restorer
+	url = https://github.com/Davedes83/workspace-restorer.git
+[submodule "omarchy/plugins/felixzsh.key-visualizer"]
+	path = omarchy/plugins/felixzsh.key-visualizer
+	url = https://github.com/felixzsh/omarchy-key-visualizer
+[submodule "omarchy/plugins/io.github.abdxdev.onscreen-keyboard"]
+	path = omarchy/plugins/io.github.abdxdev.onscreen-keyboard
+	url = https://github.com/abdxdev/omarchy-onscreen-keyboard.git
+[submodule "omarchy/plugins/io.github.ilyazar.keyboard-layout"]
+	path = omarchy/plugins/io.github.ilyazar.keyboard-layout
+	url = https://github.com/omarchy-QOL/omarchy-keyboard-layout.git
