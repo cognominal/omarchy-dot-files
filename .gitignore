@@ -7,6 +7,9 @@
 /microsoft-edge/
 /microsoft-edge-dev/
 
+# GitHub CLI account/host metadata — auth-adjacent, not shareable config
+/gh/
+
 # Desktop session state / IPC sockets / private caches — machine-specific, not config
 /dconf/
 /fcitx/
