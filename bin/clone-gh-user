@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Check for required tools
+command -v gum >/dev/null 2>&1 || { echo "gum is required but not installed. Install it with 'go install github.com/charmbracelet/gum@latest'"; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo "curl is required but not installed."; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "jq is required but not installed."; exit 1; }
+command -v git >/dev/null 2>&1 || { echo "git is required but not installed."; exit 1; }
+
+# Prompt for GitHub username using gum
+USER=$(gum input --placeholder "Enter GitHub username (e.g., charmbracelet)")
+
+if [ -z "$USER" ]; then
+  gum style --foreground 196 "Error: Username cannot be empty."
+  exit 1
+fi
+
+# Set target directory
+TARGET_DIR="$HOME/git/$USER"
+
+# Create target directory if it doesn't exist
+mkdir -p "$TARGET_DIR" || { gum style --foreground 196 "Error: Could not create directory $TARGET_DIR"; exit 1; }
+
+# Display a spinner while fetching repositories
+gum spin --title "Fetching repositories for $USER..." -- sleep 1
+
+# Fetch repositories from GitHub API
+API_URL="https://api.github.com/users/$USER/repos?per_page=100"
+if [ -n "$GITHUB_TOKEN" ]; then
+  REPOS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$API_URL")
+else
+  REPOS=$(curl -s "$API_URL")
+fi
+
+# Check if API request was successful
+if echo "$REPOS" | grep -q "Not Found"; then
+  gum style --foreground 196 "Error: User $USER not found or no repositories available."
+  exit 1
+fi
+
+# Parse repository clone URLs
+CLONE_URLS=$(echo "$REPOS" | jq -r '.[].clone_url')
+
+if [ -z "$CLONE_URLS" ]; then
+  gum style --foreground 196 "No repositories found for user $USER."
+  exit 1
+fi
+
+# Display confirmation before cloning
+gum confirm "Clone all repositories for $USER into $TARGET_DIR?" || { gum style --foreground 214 "Cloning cancelled."; exit 0; }
+
+# Clone each repository
+for REPO_URL in $CLONE_URLS; do
+  REPO_NAME=$(basename "$REPO_URL" .git)
+  gum spin --title "Cloning $REPO_NAME..." -- git clone "$REPO_URL" "$TARGET_DIR/$REPO_NAME"
+  if [ $? -eq 0 ]; then
+    gum style --foreground 46 "Successfully cloned $REPO_NAME."
+  else
+    gum style --foreground 196 "Failed to clone $REPO_NAME."
+  fi
+done
+
+gum style --foreground 46 "All repositories for $USER have been cloned to $TARGET_DIR."

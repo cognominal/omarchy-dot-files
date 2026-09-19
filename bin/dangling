@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Set directories
+GIT_DIR="$HOME/git"
+VIM_DIR="$HOME/vim"
+
+# Ensure ~/vim directory exists
+mkdir -p "$VIM_DIR"
+
+# Find dangling symlinks in ~/git
+dangling_symlinks=$(find "$GIT_DIR" -maxdepth 1 -type l ! -exec test -e {} \; -print)
+
+# Check if any dangling symlinks were found
+if [ -z "$dangling_symlinks" ]; then
+  echo "No dangling symlinks found in $GIT_DIR"
+  exit 0
+fi
+
+# Process each dangling symlink
+while IFS= read -r symlink; do
+  # Get the base name of the symlink
+  symlink_name=$(basename "$symlink")
+
+  # Check if the symlink name matches the pattern user---repo
+  if [[ "$symlink_name" =~ ^([a-zA-Z0-9_-.-]+)---([a-zA-Z0-9_-.-]+)$ ]]; then
+    user="${BASH_REMATCH[1]}"
+    repo="${BASH_REMATCH[2]}"
+
+    # Construct the GitHub URL
+    github_url="https://github.com/$user/$repo"
+
+    # Clone the repository with depth 1 into ~/vim
+    echo "Cloning $github_url into $VIM_DIR/$repo"
+    git clone --depth 1 "$github_url" "$VIM_DIR/$repo"
+
+    if [ $? -eq 0 ]; then
+      echo "Successfully cloned $repo"
+    else
+      echo "Failed to clone $repo"
+    fi
+  else
+    echo "Skipping $symlink_name: does not match user---repo pattern"
+  fi
+done <<<"$dangling_symlinks"

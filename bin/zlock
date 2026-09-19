@@ -1,0 +1,22 @@
+
+#!/usr/bin/env bash
+
+# Wrapper around `zellij lock` that swaps configs
+
+UNLOCKED="$HOME/.config/zellij/config-unlocked.kdl"
+LOCKED="$HOME/.config/zellij/config-locked.kdl"
+MAIN="$HOME/.config/zellij/config.kdl"
+
+# Switch to locked config
+cp "$LOCKED" "$MAIN"
+zellij action reload-configuration
+
+# Actually lock
+zellij action lock
+
+# Wait until the user unlocks
+# zellij lock blocks until unlocked, so when it exits we continue
+
+# Switch back to unlocked config
+cp "$UNLOCKED" "$MAIN"
+zellij action reload-configuration

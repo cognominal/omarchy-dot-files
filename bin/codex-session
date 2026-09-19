@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -e
+
+# Base repo dir (must be run inside a git repo)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || {
+  echo "❌ Not inside a git repo"
+  exit 1
+})
+
+WORKTREES_DIR="$REPO_ROOT/.codex-worktrees"
+CONFIGS_DIR="$HOME/.config/codex/sessions"
+
+mkdir -p "$WORKTREES_DIR" "$CONFIGS_DIR"
+
+usage() {
+  echo "Usage:"
+  echo "  codex-session new <name>   # create new Codex worktree & config"
+  echo "  codex-session open <name>  # open existing session"
+  echo "  codex-session list         # list all sessions"
+  echo "  codex-session delete <name> # delete session"
+}
+
+cmd=$1; shift || true
+
+case "$cmd" in
+  new)
+    name=$1
+    if [ -z "$name" ]; then usage; exit 1; fi
+
+    branch="codex/$name"
+    dir="$WORKTREES_DIR/$name"
+    config="$CONFIGS_DIR/config-$name.toml"
+
+    echo "🪄 Creating new Codex session '$name'…"
+
+    # Create worktree
+    git worktree add -b "$branch" "$dir" main
+
+    # Create isolated Codex config
+    cat > "$config" <<EOF
+# Codex session config for $name
+model = "gpt-5"
+cache_dir = "/tmp/codex-$name-cache"
+project_root = "$dir"
+EOF
+
+    echo "✅ Created:"
+    echo "  • Worktree: $dir"
+    echo "  • Branch:   $branch"
+    echo "  • Config:   $config"
+    echo
+    echo "Run: codex-session open $name"
+    ;;
+
+  open)
+    name=$1
+    [ -z "$name" ] && { usage; exit 1; }
+    dir="$WORKTREES_DIR/$name"
+    config="$CONFIGS_DIR/config-$name.toml"
+
+    if [ ! -d "$dir" ]; then
+      echo "❌ No such session '$name'"
+      exit 1
+    fi
+
+    echo "🚀 Opening Codex session '$name'..."
+    CODEx_CONFIG="$config" nvim "$dir"
+    ;;
+
+  list)
+    echo "📂 Existing Codex sessions:"
+    ls -1 "$WORKTREES_DIR" || echo "(none)"
+    ;;
+
+  delete)
+    name=$1
+    [ -z "$name" ] && { usage; exit 1; }
+    dir="$WORKTREES_DIR/$name"
+    branch="codex/$name"
+
+    echo "🗑️  Deleting session '$name'..."
+    git worktree remove "$dir" --force || true
+    git branch -D "$branch" || true
+    rm -f "$CONFIGS_DIR/config-$name.toml"
+    echo "✅ Deleted."
+    ;;
+
+  *)
+    usage
+    ;;
+esac
+

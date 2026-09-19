@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Script: scan-for-git-repos
+# Description: Scans the home directory for Git repositories and creates symlinks
+#              in ~/git/user----repo pointing to them.
+
+echo "Scanning for Git repositories in your home directory. This may take a while..."
+
+# Create ~/git if it doesn't exist
+mkdir -p "$HOME/git"
+
+# Find all .git directories and process them
+# -P: Follow symbolic links
+# -prune: Exclude directories after finding .git
+# -o -name ".git" -print0: Print .git directory path, null-separated
+find "$HOME" -maxdepth 5 -type d -name ".git" -print0 | while IFS= read -r -d $'\0' git_dir; do
+  repo_path=$(dirname "$git_dir")
+
+  # Skip if it's within ~/git itself to avoid infinite loops or conflicts
+  if [[ "$repo_path" == "$HOME/git"* ]]; then
+    continue
+  fi
+
+  # Check if it's a valid Git repository
+  if ! git -C "$repo_path" rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "Skipping '$repo_path': Not a valid Git work tree."
+    continue
+  fi
+
+  # Get the remote URL to extract user and repo name
+  remote_url=$(git -C "$repo_path" config --get remote.origin.url 2>/dev/null)
+
+  if [ -z "$remote_url" ]; then
+    echo "Warning: Could not find remote origin for '$repo_path'. Skipping symlink creation for this repo."
+    continue
+  fi
+
+  # Extract user and repo from the remote URL
+  user=""
+  repo_name=""
+
+  # Handle https://github.com/user/repo.git
+  if [[ "$remote_url" =~ ^https://github.com/([^/]+)/([^/]+)(\.git)?$ ]]; then
+    user="${BASH_REMATCH[1]}"
+    repo_name="${BASH_REMATCH[2]}"
+  # Handle git@github.com:user/repo.git
+  elif [[ "$remote_url" =~ ^git@github.com:([^/]+)/([^/]+)(\.git)?$ ]]; then
+    user="${BASH_REMATCH[1]}"
+    repo_name="${BASH_REMATCH[2]}"
+  else
+    echo "Warning: Unsupported Git remote URL format for '$repo_path': '$remote_url'. Skipping symlink creation for this repo."
+    continue
+  fi
+
+  # Create the target symlink name
+  target_symlink_name="${user}---${repo_name}"
+  target_symlink_path="$HOME/git/$target_symlink_name"
+
+  # Check if symlink already exists and points to the correct location
+  if [ -L "$target_symlink_path" ] && [ "$(readlink "$target_symlink_path")" == "$repo_path" ]; then
+    echo "Symlink already exists and is correct for '$repo_path' -> '$target_symlink_path'. Skipping."
+  elif [ -e "$target_symlink_path" ]; then
+    echo "Warning: Target path '$target_symlink_path' already exists but is not a symlink to '$repo_path'. Skipping to prevent overwrite."
+  else
+    echo "Creating symlink: '$target_symlink_path' -> '$repo_path'"
+    ln -s "$repo_path" "$target_symlink_path"
+    if [ $? -eq 0 ]; then
+      echo "Successfully created symlink for '$repo_path'."
+    else
+      echo "Error: Failed to create symlink for '$repo_path'."
+    fi
+  fi
+
+done
+
+echo "Scan complete."

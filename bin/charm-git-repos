@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+
+# charm-git-repos: TUI (via gum) to browse a GitHub user's repos and
+# clone/fetch/update them into ~/git as "<user>---<repo>".
+#
+# Flow:
+#   1. Pick a GitHub user - reused from an existing ~/git/<user>---* dir,
+#      or typed fresh (gum input / gum filter).
+#   2. Lists that user's repos (gh repo list) with a status icon showing
+#      local state: not cloned / shallow clone / up to date / behind.
+#   3. Pick one repo (gum choose), and the matching action runs:
+#        not cloned   -> git clone --depth=1
+#        shallow      -> git fetch --unshallow
+#        behind       -> git pull --ff-only
+#        up to date   -> no-op
+#
+# Requires: git, gum, gh (authenticated via `gh auth login`), jq, fd (or fdfind).
+# See README.md for more detail.
+
+# --- Configuration ---
+GIT_DIR="$HOME/git"
+ICON_CLONED_SHALLOW="1"     # Cloned with --depth=1
+ICON_NOT_CLONED=" "         # Not cloned locally
+ICON_UP_TO_DATE="100%"      # Cloned and up-to-date
+ICON_NOT_UP_TO_DATE="✔"     # Cloned but not up-to-date
+
+# --- Functions ---
+
+# Function to check for required commands
+check_command() {
+    local cmd="$1"
+    if ! command -v "$cmd" &>/dev/null; then
+        gum style --foreground "#ff0000" "Error: '$cmd' is not installed or not in your PATH." \
+            "Please install '$cmd' to use this script."
+        exit 1
+    fi
+}
+
+# Function to find 'fd' executable (fd or fdfind)
+get_fd_command() {
+    if command -v fd &>/dev/null; then
+        echo "fd"
+    elif command -v fdfind &>/dev/null; then
+        echo "fdfind"
+    else
+        echo ""
+    fi
+}
+
+# Function to ensure the ~/git directory exists
+ensure_git_dir() {
+    mkdir -p "$GIT_DIR" || {
+        gum style --foreground "#ff0000" "Error: Could not create directory $GIT_DIR"
+        exit 1
+    }
+}
+
+# Function to get unique users from existing local repos using fd
+get_local_git_users() {
+    local fd_cmd=$(get_fd_command)
+
+    if [[ -z "$fd_cmd" ]]; then
+        # This check is also done in main logic, but good to have here too
+        gum style --foreground "#ff0000" "Error: 'fd' or 'fdfind' command not found. Cannot list local users."
+        exit 1
+    fi
+
+    local users=""
+    # Check if GIT_DIR exists before trying to list
+    if [[ -d "$GIT_DIR" ]]; then
+        # fd -d 1 (max-depth 1) . (start in current dir) -t d (type directory) -p (plain output, no color)
+        # We then grep for the '---' pattern to find our repo directories.
+        # The '--' tells grep to treat subsequent arguments as non-options.
+        users=$("$fd_cmd" -d 1 . "$GIT_DIR" |
+            grep -E -- '---' |
+            sed -E 's|.*/([[:alnum:]_-]+)---.*|\1|' | # Extract user from 'path/to/user---repo'
+            sort -u)
+    fi
+    echo "$users"
+}
+
+# Function to get GitHub repositories for a given user
+get_github_repos() {
+    local github_user="$1"
+    gum spin --title "Fetching repositories for $github_user from GitHub..." \
+        -- gh repo list "$github_user" --limit 100 --json name,url,full_name 2>/dev/null
+}
+
+# Function to determine the status of a local repo
+get_repo_status() {
+    local github_repo_name="$1"
+    local github_user="$2"
+    local local_repo_path="$GIT_DIR/$github_user---$github_repo_name"
+    local status_icon=""
+
+    if [[ -d "$local_repo_path" ]]; then
+        (
+            # Suppress git output that might pollute gum's display
+            cd "$local_repo_path" &>/dev/null || return 1
+            # Check for shallow clone
+            if git rev-parse --is-shallow-clone &>/dev/null; then
+                status_icon="$ICON_CLONED_SHALLOW"
+            else
+                # Fetch to get remote tracking info
+                # Using --dry-run to not actually fetch unless needed later
+                git fetch --dry-run origin &>/dev/null
+
+                # Check if up-to-date
+                if [[ "$(git rev-list --count HEAD..origin/HEAD 2>/dev/null)" -eq 0 ]]; then
+                    status_icon="$ICON_UP_TO_DATE"
+                else
+                    status_icon="$ICON_NOT_UP_TO_DATE"
+                fi
+            fi
+        ) || status_icon="$ICON_NOT_CLONED" # Fallback if cd or git commands fail
+    else
+        status_icon="$ICON_NOT_CLONED"
+    fi
+
+    echo "$status_icon"
+}
+
+# --- Main Logic ---
+
+# 0. Check for required commands
+check_command "git"
+check_command "gum"
+check_command "gh"
+check_command "jq" # gh relies on jq for JSON parsing
+
+# Also check for fd/fdfind explicitly as we rely on it for local user scanning
+if [[ -z "$(get_fd_command)" ]]; then
+    gum style --foreground "#ff0000" "Error: 'fd' or 'fdfind' command not found." \
+        "Please install 'fd' (or 'fdfind' on Debian/Ubuntu) to use this script."
+    exit 1
+fi
+
+ensure_git_dir
+
+# 1. Select or Add User
+local_users=$(get_local_git_users)
+if [[ -z "$local_users" ]]; then
+    selected_user=$(gum input --placeholder "Enter a GitHub username:")
+else
+    selected_user=$(echo "$local_users" |
+        gum filter --placeholder "Select a GitHub user or type to add one:" \
+            --prompt "Choose a user: " \
+            --no-limit) # Allows adding new value not in the list
+fi
+
+if [[ -z "$selected_user" ]]; then
+    gum style --foreground "#ffaa00" "No user selected. Exiting."
+    exit 0
+fi
+
+github_user="$selected_user"
+gum style --foreground "#00ff00" "Managing repositories for $github_user..."
+
+# 2. Get GitHub Repos and their Status
+github_repos_json=$(get_github_repos "$github_user")
+
+if [[ -z "$github_repos_json" || "$github_repos_json" == "[]" ]]; then
+    gum style --foreground "#ffaa00" "No GitHub repositories found for $github_user or an error occurred." \
+        "Please ensure the username is correct and you are authenticated with 'gh auth login'."
+    exit 0
+fi
+
+# Parse JSON and prepare for gum choose
+repo_choices=()
+while IFS= read -r line; do
+    repo_name=$(echo "$line" | jq -r '.name')
+    full_name=$(echo "$line" | jq -r '.full_name')
+
+    status=$(get_repo_status "$repo_name" "$github_user")
+    repo_choices+=("$status $repo_name ($full_name)") # Store display string
+done < <(echo "$github_repos_json" | jq -c '.[]') # Use -c for compact output, safer with read line
+
+if [[ ${#repo_choices[@]} -eq 0 ]]; then
+    gum style --foreground "#ffaa00" "No repositories to display for $github_user."
+    exit 0
+fi
+
+# 3. Choose a Repository
+chosen_repo_with_status=$(printf "%s\n" "${repo_choices[@]}" | gum choose --no-limit)
+
+if [[ -z "$chosen_repo_with_status" ]]; then
+    gum style --foreground "#ffaa00" "No repository selected. Exiting."
+    exit 0
+fi
+
+# Extract relevant info from the chosen string
+read -r status_icon repo_display_name_and_full_name <<<"$chosen_repo_with_status"
+
+# Extract just the repo name from the display name part
+repo_name=$(echo "$repo_display_name_and_full_name" | sed -E 's/\s+\(.*//')
+
+# Find the corresponding full URL from the original JSON
+repo_url=$(echo "$github_repos_json" | jq -r ".[] | select(.name == \"$repo_name\") | .url")
+
+local_repo_path="$GIT_DIR/$github_user---$repo_name"
+
+gum style --foreground "#00ccff" "Selected: $repo_name ($status_icon)"
+
+# 4. Perform Action based on Status
+case "$status_icon" in
+"$ICON_NOT_CLONED")
+    gum style --foreground "#66ff66" "Cloning $repo_name with --depth=1..."
+    gum spin --title "Cloning $repo_name..." \
+        -- git clone --depth=1 "$repo_url" "$local_repo_path" ||
+        gum style --foreground "#ff0000" "Error cloning $repo_name."
+    ;;
+"$ICON_CLONED_SHALLOW")
+    gum style --foreground "#66ff66" "Fetching full history for $repo_name..."
+    gum spin --title "Fetching full history for $repo_name..." \
+        -- (cd "$local_repo_path" && git fetch --unshallow) ||
+        gum style --foreground "#ff0000" "Error fetching full history for $repo_name."
+    ;;
+"$ICON_NOT_UP_TO_DATE")
+    gum style --foreground "#66ff66" "Fetching updates for $repo_name..."
+    gum spin --title "Fetching updates for $repo_name..." \
+        -- (cd "$local_repo_path" && git pull --ff-only) || # Using pull --ff-only for simplicity
+        gum style --foreground "#ff0000" "Error updating $repo_name."
+    ;;
+"$ICON_UP_TO_DATE")
+    gum style --foreground "#00ccff" "Repository $repo_name is already up to date. Nothing to do."
+    ;;
+*)
+    gum style --foreground "#ffaa00" "Unknown status for $repo_name. No action taken."
+    ;;
+esac
+
+gum style --foreground "#ffffff" "Done."
+

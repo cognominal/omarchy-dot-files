@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# List of names to test
+names=(
+  "grapp-dev---nui-components.nvim"
+  "stevearc---oil.nvim"
+  "nvim-lua---kickstart.nvim"
+  "uga-rosa---ccc.nvim"
+  "nvim-neo-tree---neo-tree.nvim"
+  "mikavilpas---yazi.nvim"
+  "MagicDuck---grug-far.nvim"
+  "folke---which-key.nvim"
+)
+
+# Iterate through each name and test the regex
+for symlink_name in "${names[@]}"; do
+  echo "Testing: $symlink_name"
+  if [[ "$symlink_name" =~ ^([a-zA-Z0-9_.-]+)---([a-zA-Z0-9_.-]+)$ ]]; then
+    echo "Match successful!"
+    echo "First group: ${BASH_REMATCH[1]}"
+    echo "Second group: ${BASH_REMATCH[2]}"
+  else
+    echo "No match."
+  fi
+  echo "------------------------"
+done

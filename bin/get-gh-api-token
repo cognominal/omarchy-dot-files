@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Check for gum
+command -v gum >/dev/null 2>&1 || { echo "gum is required but not installed. Install it with 'go install github.com/charmbracelet/gum@latest'"; exit 1; }
+
+# Display header
+gum style --foreground 45 --border double --padding "1 2" "GitHub Personal Access Token Setup"
+
+# Explain the process
+gum format -t markdown << EOM
+# Steps to Create a GitHub Personal Access Token
+
+1. Go to GitHub's Personal Access Token page.
+2. Generate a new token with the desired scopes.
+3. Copy the token and paste it here.
+
+**Recommended Scopes**:
+- **repo**: For accessing private repositories.
+- **read:user**: For reading user data (optional).
+- **gist**: For creating gists (optional).
+
+**Note**: Treat your token like a password. Do not share it publicly.
+EOM
+
+# Prompt to open GitHub token page
+gum confirm "Open GitHub token creation page in your browser?" && open "https://github.com/settings/tokens/new" || gum style --foreground 214 "Please visit https://github.com/settings/tokens/new manually to create a token."
+
+# Prompt for token input (hidden for security)
+gum style --foreground 45 "Paste your GitHub Personal Access Token below:"
+TOKEN=$(gum input --password --placeholder "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+
+if [ -z "$TOKEN" ]; then
+  gum style --foreground 196 "Error: No token provided."
+  exit 1
+fi
+
+# Validate token format (basic check for ghp_ prefix)
+if [[ ! "$TOKEN" =~ ^ghp_ ]]; then
+  gum style --foreground 196 "Error: Token does not appear to be a valid GitHub PAT (should start with 'ghp_')."
+  exit 1
+fi
+
+# Choose storage method:
+gum style --foreground 45 "How would you like to store the token?"
+STORAGE=$(gum choose "Environment Variable (current session)" "File (~/.github_token)" "Both")
+
+case "$STORAGE" in
+  "Environment Variable (current session)")
+    export GITHUB_TOKEN="$TOKEN"
+    gum style --foreground 46 "Token stored in GITHUB_TOKEN environment variable for this session."
+    gum format -t markdown "To use it in scripts, access it as \$GITHUB_TOKEN."
+    ;;
+  "File (~/.github_token)")
+    echo "$TOKEN" > ~/.github_token
+    chmod 600 ~/.github_token
+    gum style --foreground 46 "Token stored in ~/.github_token with secure permissions."
+    gum format -t markdown "To use it in scripts, source it with: export GITHUB_TOKEN=\$(cat ~/.github_token)"
+    ;;
+  "Both")
+    export GITHUB_TOKEN="$TOKEN"
+    echo "$TOKEN" > ~/.github_token
+    chmod 600 ~/.github_token
+    gum style --foreground 46 "Token stored in GITHUB_TOKEN environment variable and ~/.github_token."
+    gum format -t markdown "Access it as \$GITHUB_TOKEN or source it with: export GITHUB_TOKEN=\$(cat ~/.github_token)"
+    ;;
+esac
+
+# Test the token (optional)
+gum confirm "Test the token by making a GitHub API call?" && {
+  gum spin --title "Testing token..." -- curl -s -H "Authorization: token $TOKEN" https://api.github.com/user > /dev/null
+  if [ $? -eq 0 ]; then
+    gum style --foreground 46 "Token is valid!"
+  else
+    gum style --foreground 196 "Error: Token is invalid or lacks sufficient scopes."
+    exit 1
+  fi
+}
+
+gum style --foreground 46 --border normal --padding "1 2" "Setup complete! Your token is ready to use."

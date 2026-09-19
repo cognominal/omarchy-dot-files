@@ -14,3 +14,5 @@ source "$OMARCHY_PATH/default/bash/rc"
 # alias p='python'
 
 alias hk='omarchy menu keybindings --print'
+
+export PATH="$HOME/bin:$PATH"

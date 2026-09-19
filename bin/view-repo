@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# Script: vview-repo
+# Description: Uses gum to select a Git repository from ~/git and offers to open
+#              its GitHub page or the user's GitHub page in a browser.
+
+# Check for gum installation
+if ! command -v gum &> /dev/null; then
+  echo "Error: 'gum' is not installed."
+  echo "Please install gum from https://github.com/charmbracelet/gum"
+  exit 1
+fi
+
+# Check for xdg-open or similar browser opener
+if ! command -v xdg-open &> /dev/null && \
+   ! command -v open &> /dev/null && \
+   ! command -v firefox &> /dev/null && \
+   ! command -v google-chrome &> /dev/null; then
+  echo "Error: No suitable web browser opener found (e.g., xdg-open, open, firefox, google-chrome)."
+  exit 1
+fi
+
+# Determine the browser command
+BROWSER_CMD=""
+if command -v xdg-open &> /dev/null; then
+  BROWSER_CMD="xdg-open"
+elif command -v open &> /dev/null; then # For macOS
+  BROWSER_CMD="open"
+elif command -v firefox &> /dev/null; then
+  BROWSER_CMD="firefox"
+elif command -v google-chrome &> /dev/null; then
+  BROWSER_CMD="google-chrome"
+fi
+
+# Path to ~/git
+GIT_DIR="$HOME/git"
+
+# Check if ~/git exists and has content
+if [ ! -d "$GIT_DIR" ] || [ -z "$(ls -A "$GIT_DIR")" ]; then
+  echo "No repositories found in '$GIT_DIR'."
+  echo "Please run 'gc1' to clone a repo or 'scan-for-git-repos' to find existing ones."
+  exit 0
+fi
+
+# Get list of repositories in ~/git
+repos=()
+while IFS= read -r -d $'\0' entry; do
+  if [ -L "$entry" ] || [ -d "$entry" ]; then # Check if it's a symlink or a directory
+    repo_name=$(basename "$entry")
+    if [[ "$repo_name" =~ ^(.*)----(.*)$ ]]; then
+      repos+=("$repo_name")
+    fi
+  fi
+done < <(find "$GIT_DIR" -maxdepth 1 \( -type l -o -type d \) -print0)
+
+if [ ${#repos[@]} -eq 0 ]; then
+  echo "No valid 'user----repo' formatted repositories found in '$GIT_DIR'."
+  exit 0
+fi
+
+# Use gum filter to pick a repository
+selected_repo=$(printf "%s\n" "${repos[@]}" | gum filter --placeholder "Pick a repository to view:")
+
+if [ -z "$selected_repo" ]; then
+  echo "No repository selected."
+  exit 0
+fi
+
+# Extract user and repo name
+if [[ "$selected_repo" =~ ^(.*)----(.*)$ ]]; then
+  user="${BASH_REMATCH[1]}"
+  repo_name="${BASH_REMATCH[2]}"
+else
+  echo "Error: Could not parse selected repository name: $selected_repo"
+  exit 1
+fi
+
+# Construct GitHub URLs
+repo_url="https://github.com/$user/$repo_name"
+user_url="https://github.com/$user"
+
+# Use gum choose to select an action
+action=$(gum choose "Open Repository Page" "Open User Page")
+
+if [ -z "$action" ]; then
+  echo "No action selected."
+  exit 0
+fi
+
+case "$action" in
+  "Open Repository Page")
+    echo "Opening $repo_url in browser..."
+    $BROWSER_CMD "$repo_url"
+    ;;
+  "Open User Page")
+    echo "Opening $user_url in browser..."
+    $BROWSER_CMD "$user_url"
+    ;;
+  *)
+    echo "Unknown action: $action"
+    ;;
+esac

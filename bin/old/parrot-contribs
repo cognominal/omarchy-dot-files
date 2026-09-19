@@ -1,0 +1,10 @@
+
+#! /bin/bash
+git clone https://github.com/parrot/parrot.git
+cd parrot
+
+# For each year, list the top committer
+for year in $(seq 2001 2019); do
+  echo "=== $year ==="
+  git shortlog -s -n --since="$year-01-01" --until="$year-12-31" | head -n 1
+done

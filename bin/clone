@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# clone: shallow-clone a GitHub repo from any URL pointing into it,
+# into ~/git/<user>---<repo>
+#
+# Usage: clone <github-url>
+# Example: clone https://github.com/herdrdev/herdr/blob/master/AGENTS.md
+#          -> clones into ~/git/herdrdev---herdr
+
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+    echo "Usage: clone <github-url>" >&2
+    exit 1
+fi
+
+url="$1"
+
+# Extract "user/repo" from either https://github.com/user/repo[/...] or
+# git@github.com:user/repo[.git]
+if [[ "$url" =~ github\.com[:/]([^/]+)/([^/]+) ]]; then
+    user="${BASH_REMATCH[1]}"
+    repo="${BASH_REMATCH[2]%.git}"
+else
+    echo "Error: could not parse a GitHub user/repo from: $url" >&2
+    exit 1
+fi
+
+dest_dir="$HOME/git"
+dest="$dest_dir/${user}---${repo}"
+
+if [[ -e "$dest" ]]; then
+    echo "Error: destination already exists: $dest" >&2
+    exit 1
+fi
+
+mkdir -p "$dest_dir"
+
+clone_url="https://github.com/${user}/${repo}.git"
+
+echo "Cloning ${clone_url} (depth 1) into ${dest}"
+git clone --depth 1 "$clone_url" "$dest"
