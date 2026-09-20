@@ -1,7 +1,7 @@
 hl.config({
   input = {
-    -- Ajoute les dispositions américaine (us) et russe (ru)
-    kb_layout = "us,ru",
+    -- Ajoute les dispositions américaine (us), russe (ru) et française (fr)
+    kb_layout = "us,ru,fr",
     
     -- Raccourci pour basculer de l'un à l'autre (ici : Alt Gauche + Alt Droit)
     kb_options = "grp:alts_toggle,compose:caps",
