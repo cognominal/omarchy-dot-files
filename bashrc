@@ -18,4 +18,7 @@ alias lg='lazygit'
 alias ag='alias | grep'
 alias e='nvim'
 
+# Overrides Omarchy's default g='git' alias.
+alias g='glow'
+
 export PATH="$HOME/bin:$PATH"
