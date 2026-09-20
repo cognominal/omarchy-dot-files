@@ -41,6 +41,8 @@ o.bind("SUPER + ALT + L", "Chromium omnibox", send_shortcut_once("CTRL", "L"))
 -- existing window and dispatches focuswindow directly, bypassing that block.
 o.bind("SUPER + SHIFT + T", "Telegram", { focus = "org.telegram.desktop", launch = "Telegram" })
 
+o.bind("SUPER + A", "Agent usage", "omarchy-shell omarchy.agents toggle")
+
 -- Change an existing binding by unbinding it first, then binding the key again.
 -- This example changes SUPER+SPACE from the launcher to the Omarchy root menu.
 -- hl.unbind("SUPER + SPACE")
