@@ -22,3 +22,12 @@ alias e='nvim'
 alias g='glow'
 
 export PATH="$HOME/bin:$PATH"
+
+# Rakudo Star (Raku), built from ~/git/rakudo---star via rstar
+export PATH="$HOME/git/rakudo---star/bin:$HOME/git/rakudo---star/share/perl6/site/bin:$PATH"
+
+# Syntax-highlight file contents in less via bat, keeping less's own
+# navigation/search. -R lets ANSI color codes (from bat, or from
+# `grep --color=always | less`) through instead of showing raw escapes.
+export LESS='-R'
+export LESSOPEN='|bat --color=always --style=plain %s'
