@@ -8,6 +8,21 @@
 
 set -euo pipefail
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: clone <github-url>
+
+Shallow-clones (--depth 1) a GitHub repo into ~/git/<user>---<repo>. The
+user/repo is parsed out of any URL that points into the repo, including
+deep links (blob/, tree/, issues/, ...).
+
+Example:
+  clone https://github.com/herdrdev/herdr/blob/master/AGENTS.md
+  -> clones into ~/git/herdrdev---herdr
+EOF
+    exit 0
+fi
+
 if [[ $# -ne 1 ]]; then
     echo "Usage: clone <github-url>" >&2
     exit 1

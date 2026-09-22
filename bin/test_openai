@@ -1,2 +1,14 @@
- curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"   
+#!/usr/bin/env bash
+# test_openai: smoke-test $OPENAI_API_KEY by listing available models.
+#
+# Usage: test_openai
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Usage: test_openai"
+    echo
+    echo "Lists models via the OpenAI API using \$OPENAI_API_KEY, to confirm"
+    echo "the key works. No arguments."
+    exit 0
+fi
+
+curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"

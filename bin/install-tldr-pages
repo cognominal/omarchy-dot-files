@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# install-tldr-pages: install this repo's personal tldr pages into the
+# local tldr client's cache, so `tldr <script>` works for the scripts in
+# ~/bin without ever hitting the network.
+#
+# Usage: install-tldr-pages
+
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: install-tldr-pages
+
+Copies every page in ~/bin/tldr-pages/*.md into the tldr client's local
+cache (~/.cache/tldr/pages/linux/, or $XDG_CACHE_HOME/tldr/... if set), so
+`tldr <command>` finds them for the personal scripts in ~/bin.
+
+Platform "linux" is used deliberately: it's checked before "common" by
+the tldr client (github.com/tldr-pages/tldr-python-client), so these
+pages take priority without ever needing to overwrite a same-named real
+tldr-pages entry if one exists.
+
+`tldr --update` won't touch these (it only (re)writes pages present in
+the official tldr-pages archive). `tldr --clear-cache` wipes the whole
+cache including these - re-run this script afterward to reinstall them.
+
+No arguments. Safe to re-run any time (e.g. after adding a new page here
+or after --clear-cache).
+EOF
+    exit 0
+fi
+
+src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tldr-pages"
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/tldr/pages/linux"
+
+if [[ ! -d "$src_dir" ]]; then
+    echo "Error: no such directory: $src_dir" >&2
+    exit 1
+fi
+
+mkdir -p "$cache_dir"
+
+count=0
+for page in "$src_dir"/*.md; do
+    [[ -e "$page" ]] || continue
+    cp "$page" "$cache_dir/$(basename "$page")"
+    count=$((count + 1))
+done
+
+echo "Installed $count tldr page(s) into $cache_dir"

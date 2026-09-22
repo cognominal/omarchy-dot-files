@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# link-omarchy-plugins: symlink every third-party Omarchy plugin into ~/git,
+# using the same ~/git/<user>---<repo> naming convention as `clone`.
+#
+# Omarchy loads plugins from ~/.config/omarchy/plugins/<plugin-id>/, and each
+# one is already its own git checkout (its own .git, tracking the plugin's
+# GitHub repo). That's the one copy that actually matters at runtime, so
+# rather than cloning a second copy into ~/git that can drift out of sync,
+# this just links ~/git/<user>---<repo> -> the plugin directory.
+#
+# Usage: link-omarchy-plugins
+# No arguments. Safe to re-run: existing correct links are left alone,
+# anything else in the way is reported and skipped rather than overwritten.
+
+set -euo pipefail
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: link-omarchy-plugins
+
+Symlinks every third-party Omarchy plugin under
+~/.config/omarchy/plugins/<id>/ into ~/git/<user>---<repo>, parsed from
+each plugin's 'origin' remote - same naming convention as `clone`. Safe to
+re-run: correct existing links are left alone, and anything else in the
+way (a non-symlink, a symlink elsewhere, a plugin with no git origin) is
+reported and skipped rather than overwritten. No arguments.
+EOF
+    exit 0
+fi
+
+plugins_dir="$HOME/.config/omarchy/plugins"
+dest_dir="$HOME/git"
+
+if [[ ! -d "$plugins_dir" ]]; then
+    echo "Error: no such directory: $plugins_dir" >&2
+    exit 1
+fi
+
+mkdir -p "$dest_dir"
+
+shopt -s nullglob
+for plugin in "$plugins_dir"/*/; do
+    plugin="${plugin%/}"
+    name="$(basename "$plugin")"
+
+    if [[ ! -d "$plugin/.git" ]]; then
+        echo "skip:    $name (not a git checkout)"
+        continue
+    fi
+
+    url="$(git -C "$plugin" remote get-url origin 2>/dev/null || true)"
+    if [[ -z "$url" ]]; then
+        echo "skip:    $name (no 'origin' remote)"
+        continue
+    fi
+
+    # Extract "user/repo" from https://github.com/user/repo[.git] or
+    # git@github.com:user/repo[.git] - same parse as ~/bin/clone.
+    if [[ "$url" =~ github\.com[:/]([^/]+)/([^/]+) ]]; then
+        user="${BASH_REMATCH[1]}"
+        repo="${BASH_REMATCH[2]%.git}"
+    else
+        echo "skip:    $name (origin isn't a github.com URL: $url)"
+        continue
+    fi
+
+    dest="$dest_dir/${user}---${repo}"
+
+    if [[ -L "$dest" ]]; then
+        if [[ "$(readlink -f "$dest")" == "$(readlink -f "$plugin")" ]]; then
+            echo "ok:      ${user}---${repo} (already linked)"
+        else
+            echo "skip:    ${user}---${repo} (symlink points elsewhere: $(readlink "$dest"))"
+        fi
+        continue
+    fi
+
+    if [[ -e "$dest" ]]; then
+        echo "skip:    ${user}---${repo} (already exists and isn't a symlink)"
+        continue
+    fi
+
+    ln -s "$plugin" "$dest"
+    echo "linked:  ${user}---${repo} -> $plugin"
+done

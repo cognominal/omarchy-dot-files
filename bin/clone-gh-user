@@ -1,5 +1,20 @@
 #!/bin/bash
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: clone-gh-user
+
+Interactively prompts (via gum) for a GitHub username, then clones every
+public repo owned by that user into ~/git/<username>/<repo-name>.
+
+Set $GITHUB_TOKEN first to authenticate the GitHub API request (higher
+rate limit; needed for that user's private repos too).
+
+Requires: gum, curl, jq, git.
+EOF
+    exit 0
+fi
+
 # Check for required tools
 command -v gum >/dev/null 2>&1 || { echo "gum is required but not installed. Install it with 'go install github.com/charmbracelet/gum@latest'"; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required but not installed."; exit 1; }

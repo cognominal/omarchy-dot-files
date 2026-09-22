@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 set -e
 
+usage() {
+  echo "Usage:"
+  echo "  codex-session new <name>   # create new Codex worktree & config"
+  echo "  codex-session open <name>  # open existing session"
+  echo "  codex-session list         # list all sessions"
+  echo "  codex-session delete <name> # delete session"
+  echo
+  echo "Manages per-feature Codex sandboxes: each session is a git worktree"
+  echo "(branch codex/<name>) under .codex-worktrees/ plus an isolated Codex"
+  echo "config under ~/.config/codex/sessions/. Must be run inside a git repo"
+  echo "(except for -h/--help)."
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
 # Base repo dir (must be run inside a git repo)
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || {
   echo "❌ Not inside a git repo"
@@ -11,14 +29,6 @@ WORKTREES_DIR="$REPO_ROOT/.codex-worktrees"
 CONFIGS_DIR="$HOME/.config/codex/sessions"
 
 mkdir -p "$WORKTREES_DIR" "$CONFIGS_DIR"
-
-usage() {
-  echo "Usage:"
-  echo "  codex-session new <name>   # create new Codex worktree & config"
-  echo "  codex-session open <name>  # open existing session"
-  echo "  codex-session list         # list all sessions"
-  echo "  codex-session delete <name> # delete session"
-}
 
 cmd=$1; shift || true
 

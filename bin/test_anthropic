@@ -1,3 +1,16 @@
+#!/usr/bin/env bash
+# test_anthropic: smoke-test $ANTHROPIC_API_KEY with a minimal Messages API call.
+#
+# Usage: test_anthropic
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Usage: test_anthropic"
+    echo
+    echo "Sends a minimal request to the Anthropic Messages API using"
+    echo "\$ANTHROPIC_API_KEY, to confirm the key works. No arguments."
+    exit 0
+fi
+
 curl https://api.anthropic.com/v1/messages \
   -H "Content-Type: application/json" \
   -H "x-api-key: $ANTHROPIC_API_KEY" \

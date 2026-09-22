@@ -17,6 +17,19 @@
 # Requires: git, gum, gh (authenticated via `gh auth login`), jq, fd (or fdfind).
 # See README.md for more detail.
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: charm-git-repos
+
+Interactive TUI (gum) to browse a GitHub user's repos and clone/fetch/
+update them into ~/git/<user>---<repo>. No arguments - everything (user,
+repo, action) is chosen interactively. See README.md for the full flow.
+
+Requires: git, gum, gh (authenticated via `gh auth login`), jq, fd (or fdfind).
+EOF
+    exit 0
+fi
+
 # --- Configuration ---
 GIT_DIR="$HOME/git"
 ICON_CLONED_SHALLOW="1"     # Cloned with --depth=1

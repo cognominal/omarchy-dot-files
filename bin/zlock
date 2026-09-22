@@ -3,6 +3,17 @@
 
 # Wrapper around `zellij lock` that swaps configs
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: zlock
+
+Locks the terminal via `zellij action lock`, swapping to a
+keybinding-disabled zellij config for the duration and back to the normal
+one once you unlock. No arguments.
+EOF
+    exit 0
+fi
+
 UNLOCKED="$HOME/.config/zellij/config-unlocked.kdl"
 LOCKED="$HOME/.config/zellij/config-locked.kdl"
 MAIN="$HOME/.config/zellij/config.kdl"

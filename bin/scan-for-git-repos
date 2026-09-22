@@ -4,6 +4,18 @@
 # Description: Scans the home directory for Git repositories and creates symlinks
 #              in ~/git/user----repo pointing to them.
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: scan-for-git-repos
+
+Scans $HOME (up to 5 levels deep) for git repositories with a GitHub
+'origin' remote, and symlinks each one into ~/git/<user>---<repo> if a
+symlink isn't already there. Existing files/dirs at that path are left
+alone and reported, never overwritten. No arguments.
+EOF
+    exit 0
+fi
+
 echo "Scanning for Git repositories in your home directory. This may take a while..."
 
 # Create ~/git if it doesn't exist

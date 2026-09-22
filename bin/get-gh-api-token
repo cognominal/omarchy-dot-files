@@ -1,5 +1,19 @@
 #!/bin/bash
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    cat <<'EOF'
+Usage: get-gh-api-token
+
+Interactively (via gum) walks through creating a GitHub Personal Access
+Token: opens the token-creation page, prompts you to paste the token,
+validates it, and stores it as $GITHUB_TOKEN for this session, in
+~/.github_token (chmod 600), or both - your choice.
+
+Requires: gum.
+EOF
+    exit 0
+fi
+
 # Check for gum
 command -v gum >/dev/null 2>&1 || { echo "gum is required but not installed. Install it with 'go install github.com/charmbracelet/gum@latest'"; exit 1; }
 
