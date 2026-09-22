@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# recent-commits: list your most recent commits across ALL your GitHub
+# repos (public + private the token can see), via `gh search commits`.
+#
+# Usage: recent-commits [-n N] [-a AUTHOR] [EXTRA gh-search-commits FLAGS...]
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: recent-commits [-n N] [-a AUTHOR] [EXTRA gh search commits FLAGS...]
+
+Lists your most recent commits across every repo GitHub's search index can
+see for your token (public + private with access) - not just repos cloned
+locally. Wraps `gh search commits --author=... --sort=author-date`.
+
+Options:
+  -n N        Max commits to show (default: 20, gh's own cap per call: 100)
+  -a AUTHOR   GitHub username to search (default: your logged-in gh user)
+  -h, --help  Show this help
+
+Extra arguments are passed straight through to `gh search commits`, e.g.:
+  recent-commits -n 50 --author-date=">2026-01-01"
+  recent-commits --repo cognominal/omarchy-dot-files
+
+Caveats:
+  - Only indexes each repo's default branch (not unmerged feature branches).
+  - Matches commit AUTHOR by default; pass --committer=<name> yourself if
+    you want committer instead (e.g. after a rebase/merge on someone
+    else's behalf).
+  - Don't pass your own --json/--jq; this script already uses both to
+    build the table.
+
+Requires: gh, authenticated (`gh auth login`).
+EOF
+}
+
+limit=20
+author=""
+extra_args=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -n)
+            limit="$2"
+            shift 2
+            ;;
+        -a)
+            author="$2"
+            shift 2
+            ;;
+        *)
+            extra_args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$author" ]]; then
+    author="$(gh api user --jq .login)"
+fi
+
+gh search commits --author="$author" --sort=author-date --order=desc \
+    --limit="$limit" "${extra_args[@]}" \
+    --json repository,sha,commit \
+    --jq '.[] | [(.commit.author.date[0:10]), .repository.fullName, (.sha[0:7]), (.commit.message | split("\n")[0])] | @tsv' \
+    | column -t -s $'\t'
