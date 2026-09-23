@@ -1,40 +1,74 @@
 #!/usr/bin/env bash
-# clone: shallow-clone a GitHub repo from any URL pointing into it,
-# into ~/git/<user>---<repo>
+# clone: shallow-clone a GitHub repo from any URL pointing into it, from a
+# bare "user/repo" shorthand, or from just a username (picks the repo via
+# gum), into ~/git/<user>---<repo>
 #
-# Usage: clone <github-url>
+# Usage: clone <github-url-or-user/repo-or-username>
 # Example: clone https://github.com/herdrdev/herdr/blob/master/AGENTS.md
 #          -> clones into ~/git/herdrdev---herdr
+# Example: clone jdx/mise
+#          -> clones into ~/git/jdx---mise
+# Example: clone jdx
+#          -> prompts (via gum) to pick one of jdx's repos, then clones it
 
 set -euo pipefail
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     cat <<'EOF'
-Usage: clone <github-url>
+Usage: clone <github-url-or-user/repo-or-username>
 
 Shallow-clones (--depth 1) a GitHub repo into ~/git/<user>---<repo>. The
 user/repo is parsed out of any URL that points into the repo, including
-deep links (blob/, tree/, issues/, ...).
+deep links (blob/, tree/, issues/, ...), or you can pass the bare
+"user/repo" shorthand directly. Pass just a username (no "/") to pick one
+of their repos interactively via gum.
 
 Example:
   clone https://github.com/herdrdev/herdr/blob/master/AGENTS.md
   -> clones into ~/git/herdrdev---herdr
+
+Example:
+  clone jdx/mise
+  -> clones into ~/git/jdx---mise
+
+Example:
+  clone jdx
+  -> prompts (via gum) to pick one of jdx's repos, then clones it
 EOF
     exit 0
 fi
 
 if [[ $# -ne 1 ]]; then
-    echo "Usage: clone <github-url>" >&2
+    echo "Usage: clone <github-url-or-user/repo-or-username>" >&2
     exit 1
 fi
 
 url="$1"
 
-# Extract "user/repo" from either https://github.com/user/repo[/...] or
-# git@github.com:user/repo[.git]
+# Extract "user/repo" from https://github.com/user/repo[/...],
+# git@github.com:user/repo[.git], the bare "user/repo" shorthand, or a bare
+# username (no "/"), in which case the repo is picked interactively.
 if [[ "$url" =~ github\.com[:/]([^/]+)/([^/]+) ]]; then
     user="${BASH_REMATCH[1]}"
     repo="${BASH_REMATCH[2]%.git}"
+elif [[ "$url" =~ ^([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)$ ]]; then
+    user="${BASH_REMATCH[1]}"
+    repo="${BASH_REMATCH[2]%.git}"
+elif [[ "$url" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    user="$url"
+    repo_lines=$(gh repo list "$user" --limit 200 --json name,description \
+        --jq '.[] | [.name, (.description // "")] | @tsv')
+    if [[ -z "$repo_lines" ]]; then
+        echo "Error: no repos found for GitHub user: $user" >&2
+        exit 1
+    fi
+    formatted=$(awk -F'\t' '{printf "%-30s %s\n", $1, $2}' <<<"$repo_lines")
+    choice=$(gum filter --header "Select a repo owned by $user" <<<"$formatted")
+    if [[ -z "$choice" ]]; then
+        echo "No repo selected." >&2
+        exit 1
+    fi
+    repo=$(awk '{print $1}' <<<"$choice")
 else
     echo "Error: could not parse a GitHub user/repo from: $url" >&2
     exit 1

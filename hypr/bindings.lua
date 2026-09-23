@@ -43,6 +43,10 @@ o.bind("SUPER + SHIFT + T", "Telegram", { focus = "org.telegram.desktop", launch
 
 o.bind("SUPER + A", "Agent usage", "omarchy-shell omarchy.agents toggle")
 
+o.bind("SUPER + D", "Clipboard manager", "omarchy-shell shell toggle omarchy.clipboard")
+
+o.bind("SUPER + SHIFT + K", "On-Screen Keyboard", "omarchy-shell shell toggle io.github.abdxdev.onscreen-keyboard")
+
 -- Change an existing binding by unbinding it first, then binding the key again.
 -- This example changes SUPER+SPACE from the launcher to the Omarchy root menu.
 -- hl.unbind("SUPER + SPACE")
