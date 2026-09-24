@@ -13,3 +13,21 @@
 [submodule "omarchy/plugins/cgranier.dojo"]
 	path = omarchy/plugins/cgranier.dojo
 	url = https://github.com/cgranier/omarchy-keybind-dojo.git
+[submodule "omarchy/themes/coffee"]
+	path = omarchy/themes/coffee
+	url = https://github.com/megabyte0x/omarchy-coffee-theme.git
+[submodule "omarchy/themes/coffee-latte"]
+	path = omarchy/themes/coffee-latte
+	url = https://github.com/megabyte0x/omarchy-coffee-latte-theme.git
+[submodule "omarchy/themes/giants"]
+	path = omarchy/themes/giants
+	url = https://github.com/dhh/omarchy-giants-theme
+[submodule "omarchy/themes/kanagawa-dragon"]
+	path = omarchy/themes/kanagawa-dragon
+	url = https://github.com/bjarneo/omarchy-kanagawa-dragon-theme
+[submodule "omarchy/themes/monochrome"]
+	path = omarchy/themes/monochrome
+	url = https://github.com/Swarnim114/omarchy-monochrome-theme
+[submodule "omarchy/themes/van-gogh"]
+	path = omarchy/themes/van-gogh
+	url = https://github.com/Nirmal314/omarchy-van-gogh-theme
