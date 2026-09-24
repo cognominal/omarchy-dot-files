@@ -78,12 +78,17 @@
   "plugins": [
     {
       "id": "cgranier.dojo"
+    },
+    {
+      "id": "cog.notifications"
     }
   ],
   "disabledPlugins": [
-    "omarchy.keyboard-layout"
+    "omarchy.keyboard-layout",
+    "omarchy.notifications"
   ],
   "cloneSourceRestores": [
-    "io.github.ilyazar.keyboard-layout"
+    "io.github.ilyazar.keyboard-layout",
+    "cog.notifications"
   ]
 }
