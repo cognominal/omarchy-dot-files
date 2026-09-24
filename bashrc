@@ -17,6 +17,9 @@ alias hk='omarchy menu keybindings --print'
 alias lg='lazygit'
 alias ag='alias | grep'
 alias e='nvim'
+fgit() {
+    git -C "${1:-.}" log --reverse --format=%ai "${2:-HEAD}" | head -1
+}
 
 # Overrides Omarchy's default g='git' alias.
 alias g='glow'
