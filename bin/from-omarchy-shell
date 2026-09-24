@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# from-omarchy-shell: check whether a running process descends (directly, or
+# transitively via the uwsm-app launch daemon) from the Omarchy shell
+# (quickshell).
+#
+# Usage:
+#   from-omarchy-shell <pid>
+#   from-omarchy-shell -n <name-or-pattern>   # resolved via pgrep -f
+set -euo pipefail
+
+SHELL_PATTERN='quickshell -n -p .*omarchy/shell'
+
+usage() {
+  echo "Usage: $(basename "$0") <pid>" >&2
+  echo "       $(basename "$0") -n <process-name-or-pattern>" >&2
+  exit 1
+}
+
+help() {
+  cat <<'EOF'
+Usage: from-omarchy-shell <pid>
+       from-omarchy-shell -n <process-name-or-pattern>
+
+Check whether a running process descends from the Omarchy shell
+(quickshell), directly (by fork) or via the uwsm-app launch daemon.
+
+Prints the process's ancestry chain and cgroup, then one of:
+  DIRECT    - a fork descendant of the shell (definitive)
+  UNKNOWN   - launched via uwsm-app; origin can't be determined post-hoc
+  UNRELATED - no ancestry or cgroup link to the shell found
+
+Options:
+  -n <pattern>   resolve the target via `pgrep -f <pattern>` instead of a PID
+  -h, --help     show this help
+
+Examples:
+  from-omarchy-shell 936170
+  from-omarchy-shell -n wl-paste
+EOF
+  exit 0
+}
+
+[ $# -ge 1 ] || usage
+case "$1" in -h|--help) help ;; esac
+
+if [ "$1" = "-n" ]; then
+  [ $# -eq 2 ] || usage
+  mapfile -t matches < <(pgrep -f "$2")
+  case "${#matches[@]}" in
+    0) echo "No running process matches '$2'" >&2; exit 1 ;;
+    1) pid="${matches[0]}" ;;
+    *)
+      echo "Multiple processes match '$2':" >&2
+      for p in "${matches[@]}"; do
+        printf '  %6s  %s\n' "$p" "$(ps -o cmd= -p "$p")" >&2
+      done
+      echo "Re-run with a specific PID." >&2
+      exit 1
+      ;;
+  esac
+else
+  pid="$1"
+  [[ "$pid" =~ ^[0-9]+$ ]] || usage
+fi
+
+[ -d "/proc/$pid" ] || { echo "No such process: $pid" >&2; exit 1; }
+
+shell_pid=$(pgrep -f "$SHELL_PATTERN" | head -1 || true)
+[ -n "$shell_pid" ] || { echo "Omarchy shell (quickshell) not found running." >&2; exit 1; }
+
+cgroup_of() { awk -F: '{print $3}' "/proc/$1/cgroup" 2>/dev/null; }
+cmd_of()    { ps -o cmd= -p "$1" 2>/dev/null || echo "?"; }
+ppid_of()   { ps -o ppid= -p "$1" 2>/dev/null | tr -d ' '; }
+
+shell_cgroup=$(cgroup_of "$shell_pid")
+target_cgroup=$(cgroup_of "$pid")
+
+echo "Shell:  pid $shell_pid  ($(cmd_of "$shell_pid"))"
+echo "Shell cgroup: $shell_cgroup"
+echo
+echo "Target: pid $pid  ($(cmd_of "$pid"))"
+echo "Target cgroup: $target_cgroup"
+echo
+
+echo "Ancestry chain:"
+chain_pid="$pid"
+found_direct=0
+while [ "$chain_pid" -gt 1 ]; do
+  cmd=$(cmd_of "$chain_pid")
+  marker=""
+  if [ "$chain_pid" = "$shell_pid" ]; then
+    marker="  <-- Omarchy shell"
+    found_direct=1
+  fi
+  printf '  %6s  %s%s\n' "$chain_pid" "$cmd" "$marker"
+  next=$(ppid_of "$chain_pid")
+  [ -n "$next" ] || break
+  chain_pid="$next"
+done
+echo
+
+if [ "$found_direct" -eq 1 ]; then
+  echo "RESULT: DIRECT — this process is a fork descendant of the Omarchy shell."
+  exit 0
+fi
+
+if [ "$target_cgroup" = "$shell_cgroup" ]; then
+  echo "RESULT: NOT_FROM_SHELL — shares the shell's session cgroup ($target_cgroup),"
+  echo "        so it was not rerouted through uwsm-app and its ppid chain above"
+  echo "        is fully trustworthy; the shell does not appear in it, so this"
+  echo "        process is definitively not a fork descendant of the shell."
+  exit 1
+fi
+
+if [[ "$target_cgroup" == *app.slice*app-*.scope* || "$target_cgroup" == *app-graphical.slice*app-*.scope* ]]; then
+  echo "RESULT: UNKNOWN (uwsm-app) — this process was launched via the"
+  echo "        wayland-wm-app-daemon (uwsm-app), which reparents it under"
+  echo "        systemd and does NOT record who requested the launch."
+  echo "        It MAY have been triggered by the shell (e.g. a plugin's"
+  echo "        exec/launch call) or by anything else (a keybinding, a menu,"
+  echo "        a terminal) — this cannot be determined after the fact from"
+  echo "        process state, cgroups, or the daemon's journal log."
+  exit 2
+fi
+
+echo "RESULT: UNRELATED — no ancestry or cgroup link to the Omarchy shell found."
+exit 1
