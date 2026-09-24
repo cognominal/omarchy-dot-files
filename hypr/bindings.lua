@@ -47,6 +47,8 @@ o.bind("SUPER + D", "Clipboard manager", "omarchy-shell shell toggle omarchy.cli
 
 o.bind("SUPER + SHIFT + K", "On-Screen Keyboard", "omarchy-shell shell toggle io.github.abdxdev.onscreen-keyboard")
 
+o.bind("SUPER + R", "Key visualizer", "omarchy-shell key-visualizer toggle")
+
 -- Change an existing binding by unbinding it first, then binding the key again.
 -- This example changes SUPER+SPACE from the launcher to the Omarchy root menu.
 -- hl.unbind("SUPER + SPACE")
