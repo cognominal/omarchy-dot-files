@@ -47,9 +47,8 @@ o.bind("SUPER + D", "Clipboard manager", "omarchy-shell shell toggle omarchy.cli
 
 o.bind("SUPER + SHIFT + K", "On-Screen Keyboard", "omarchy-shell shell toggle io.github.abdxdev.onscreen-keyboard")
 
--- Toggle, then flash the OSD with the resulting state
-o.bind("SUPER + R", "Key visualizer",
-  [[sh -c 'omarchy-shell key-visualizer toggle >/dev/null; if [ "$(omarchy-shell key-visualizer paused)" = true ]; then m="Key visualizer off"; else m="Key visualizer on"; fi; omarchy-osd -i keyboard -m "$m"']])
+-- The plugin flashes "Key visualizer on/off" in its own card on each toggle
+o.bind("SUPER + R", "Key visualizer", "omarchy-shell key-visualizer toggle")
 
 -- Change an existing binding by unbinding it first, then binding the key again.
 -- This example changes SUPER+SPACE from the launcher to the Omarchy root menu.
