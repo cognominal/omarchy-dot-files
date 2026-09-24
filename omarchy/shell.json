@@ -15,6 +15,9 @@
         },
         {
           "id": "omarchy.workspaces"
+        },
+        {
+          "id": "omarchy.active-window"
         }
       ],
       "center": [
@@ -34,11 +37,11 @@
           "id": "io.github.abdxdev.onscreen-keyboard"
         },
         {
-          "id": "io.github.ilyazar.keyboard-layout",
-          "perWindowLayouts": true
+          "id": "omarchy.system-update"
         },
         {
-          "id": "omarchy.system-update"
+          "id": "io.github.ilyazar.keyboard-layout",
+          "perWindowLayouts": true
         }
       ],
       "right": [
@@ -46,10 +49,13 @@
           "id": "omarchy.tray"
         },
         {
-          "id": "davedes.workspace-restorer"
+          "id": "felixzsh.key-visualizer"
         },
         {
-          "id": "felixzsh.key-visualizer"
+          "id": "omarchy.monitor"
+        },
+        {
+          "id": "davedes.workspace-restorer"
         },
         {
           "id": "omarchy.agents"
@@ -64,15 +70,16 @@
           "id": "omarchy.audio"
         },
         {
-          "id": "omarchy.monitor"
-        },
-        {
           "id": "omarchy.power"
         }
       ]
     }
   },
-  "plugins": [],
+  "plugins": [
+    {
+      "id": "cgranier.dojo"
+    }
+  ],
   "disabledPlugins": [
     "omarchy.keyboard-layout"
   ],

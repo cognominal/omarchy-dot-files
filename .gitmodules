@@ -10,3 +10,6 @@
 [submodule "omarchy/plugins/io.github.ilyazar.keyboard-layout"]
 	path = omarchy/plugins/io.github.ilyazar.keyboard-layout
 	url = https://github.com/omarchy-QOL/omarchy-keyboard-layout.git
+[submodule "omarchy/plugins/cgranier.dojo"]
+	path = omarchy/plugins/cgranier.dojo
+	url = https://github.com/cgranier/omarchy-keybind-dojo.git
