@@ -18,6 +18,9 @@ new_cwd = "follow"
 [keys]
 prefix = "ctrl+space"
 
+# Sidebar, also on Super+B (free in Hyprland)
+toggle_sidebar = ["prefix+b", "super+b"]
+
 # Config and help
 reload_config = "prefix+q"
 help = "prefix+?"
@@ -30,7 +33,7 @@ copy_mode = "prefix+["
 split_horizontal = ["prefix+h", "alt+enter"]
 split_vertical = ["prefix+v", "alt+shift+enter"]
 close_pane = ["prefix+x", "alt+esc"]
-zoom = "prefix+z"
+zoom = ["prefix+z", "super+z"]
 last_pane = "prefix+;"
 
 focus_pane_left = "ctrl+alt+left"
