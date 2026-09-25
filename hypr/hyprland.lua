@@ -10,6 +10,13 @@ dofile((os.getenv("OMARCHY_PATH") or "/usr/share/omarchy") .. "/default/hypr/boo
 -- keeping core window-manager bindings:
 -- omarchy_preinstalled_bindings = false
 
+-- Use a full-screen scratchpad (hypr/qconsole.lua) in place of Omarchy's
+-- half-screen drop-down console. preload runs it at the same point in
+-- Omarchy's load order as the original.
+package.preload["default.hypr.qconsole"] = function()
+  return dofile(os.getenv("HOME") .. "/.config/hypr/qconsole.lua")
+end
+
 -- Load Omarchy defaults.
 require("default.hypr.omarchy")
 
