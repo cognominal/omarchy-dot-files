@@ -7,11 +7,16 @@
 # All the default Omarchy aliases and functions
 # (don't mess with these directly, just overwrite them here!)
 source "$OMARCHY_PATH/default/bash/rc"
+# Private keys live outside the repo
+[[ -f ~/.secrets ]] && source ~/.secrets
 
 # Add your own exports, aliases, and functions here.
 #
 # Make an alias for invoking commands you use constantly
 # alias p='python'
+
+alias gp='glow -p'
+alias .='source ~/.config/bashrc'
 
 alias hk='omarchy menu keybindings --print'
 alias lg='lazygit'
