@@ -16,6 +16,7 @@ source "$OMARCHY_PATH/default/bash/rc"
 alias hk='omarchy menu keybindings --print'
 alias lg='lazygit'
 alias ag='alias | grep'
+alias w='which'
 alias e='nvim'
 fgit() {
     git -C "${1:-.}" log --reverse --format=%ai "${2:-HEAD}" | head -1
