@@ -1,0 +1,136 @@
+#!/bin/bash
+# Create a herdr workspace backed by a new git worktree, with pi, lazygit,
+# nvim, and sh tabs.
+# Bound to SUPER + N in Hyprland.
+
+set -euo pipefail
+
+SCRIPT_NAME="herdr-workspace-dev"
+
+die() { echo "$SCRIPT_NAME: $*" >&2; exit 1; }
+warn() { echo "$SCRIPT_NAME: warning: $*" >&2; }
+
+# --- bail if herdr server isn't running ---
+
+herdr status >/dev/null 2>&1 || die "herdr server is not running (try: herdr)"
+
+# --- discover the source repo ---
+# Strategy:
+#   1. Check the focused workspace's active pane cwd (if inside a git repo, use it)
+#   2. Otherwise list every repo from herdr workspace metadata
+#   3. If exactly one, use it. If multiple, ask the user to pick.
+
+REPO_ROOT=""
+REPO_NAME=""
+
+# Try the focused workspace's active pane cwd first
+FOCUSED_WS=$(herdr workspace list 2>/dev/null | jq -r '.result.workspaces[] | select(.focused == true) | .workspace_id // empty')
+if [[ -n "$FOCUSED_WS" ]]; then
+  FOCUSED_PANE_CWD=$(
+    herdr pane list --workspace "$FOCUSED_WS" 2>/dev/null \
+    | jq -r '.result.panes[] | select(.focused == true) | .foreground_cwd // empty'
+  )
+  if [[ -n "$FOCUSED_PANE_CWD" ]]; then
+    GIT_TOP=$(cd "$FOCUSED_PANE_CWD" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) || true
+    if [[ -n "$GIT_TOP" ]]; then
+      REPO_ROOT="$GIT_TOP"
+      REPO_NAME=$(basename "$GIT_TOP")
+    fi
+  fi
+fi
+
+# Fallback: scan all workspaces for repos
+if [[ -z "$REPO_ROOT" ]]; then
+  REPOS=$(
+    herdr workspace list 2>/dev/null \
+    | jq -r '
+      [.result.workspaces[]
+       | select(.worktree != null)
+       | {root: .worktree.repo_root, name: .worktree.repo_name}
+       | select(.root != null and .root != "")]
+      | unique_by(.root)[]
+      | "\(.name)	\(.root)"'
+  )
+
+  COUNT=$(echo "$REPOS" | grep -c . || true)
+
+  if [[ "$COUNT" -eq 0 ]]; then
+    die "No git repo found in any herdr workspace. Open a repo workspace first, or work from a pane inside a git repo."
+  elif [[ "$COUNT" -eq 1 ]]; then
+    REPO_NAME=$(echo "$REPOS" | cut -f1)
+    REPO_ROOT=$(echo "$REPOS" | cut -f2)
+  else
+    # Multiple repos — let the user pick by name
+    PICKED=$(echo "$REPOS" | cut -f1 | omarchy-menu-select "Choose a repo" --width 500 2>/dev/null) || die "cancelled"
+    REPO_ROOT=$(echo "$REPOS" | grep "^$PICKED	" | cut -f2)
+    REPO_NAME="$PICKED"
+  fi
+fi
+
+# --- get current branch name ---
+
+CURRENT_BRANCH=$(cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD 2>/dev/null) || {
+  warn "could not get current branch from $REPO_ROOT, defaulting to HEAD"
+  CURRENT_BRANCH="HEAD"
+}
+
+# --- ask for worktree name ---
+
+WT_NAME=$(omarchy-menu-input "Worktree name" --width 400 2>/dev/null) || die "cancelled"
+
+# Validate worktree name
+if [[ ! "$WT_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+  die "invalid worktree name '$WT_NAME' — use letters, digits, dots, hyphens, or underscores"
+fi
+
+# --- let herdr create the worktree + workspace ---
+# herdr worktree create handles:
+#   - running git worktree add
+#   - placing it at ~/.herdr/worktrees/<repo-name>/<name>
+#   - creating the workspace linked to the parent repo
+#   - the new workspace appears under the parent repo subtree in the sidebar
+
+echo "creating worktree $WT_NAME in $REPO_NAME (based on $CURRENT_BRANCH) ..."
+RESPONSE=$(herdr worktree create \
+  --cwd "$REPO_ROOT" \
+  --label "$WT_NAME" \
+  --branch "$WT_NAME" \
+  --focus 2>&1) || die "herdr worktree create failed: $RESPONSE"
+
+WORKSPACE_ID=$(echo "$RESPONSE" | jq -r '.result.workspace.workspace_id')
+ROOT_PANE=$(echo "$RESPONSE" | jq -r '.result.root_pane.pane_id')
+WS_NUM=$(echo "$RESPONSE" | jq -r '.result.workspace.number')
+WT_DIR=$(echo "$RESPONSE" | jq -r '.result.worktree.path // .result.workspace.worktree.checkout_path')
+
+test -n "$WORKSPACE_ID" || die "could not determine workspace ID"
+test -n "$ROOT_PANE"    || die "could not determine root pane ID"
+test -n "$WT_DIR"       || die "could not determine worktree path"
+
+# rename initial tab to "pi" and start pi
+TAB_ID=$(echo "$RESPONSE" | jq -r '.result.tab.tab_id')
+herdr tab rename "$TAB_ID" "pi" 2>&1 || true
+
+AGENT_NAME="pi-$WS_NUM"
+echo "starting pi in pane $ROOT_PANE ..."
+herdr agent start "$AGENT_NAME" --kind pi --pane "$ROOT_PANE" --timeout 30000 2>&1 || warn "agent start failed"
+
+# --- lazygit tab ---
+
+LAZYGIT_RESPONSE=$(herdr tab create --workspace "$WORKSPACE_ID" --label lazygit --cwd "$WT_DIR" 2>&1) || die "lazygit tab create failed: $LAZYGIT_RESPONSE"
+LAZYGIT_PANE=$(echo "$LAZYGIT_RESPONSE" | jq -r '.result.root_pane.pane_id')
+herdr pane run "$LAZYGIT_PANE" lazygit 2>&1 || warn "lazygit launch failed"
+
+# --- nvim tab ---
+
+NVIM_RESPONSE=$(herdr tab create --workspace "$WORKSPACE_ID" --label nvim --cwd "$WT_DIR" 2>&1) || die "nvim tab create failed: $NVIM_RESPONSE"
+NVIM_PANE=$(echo "$NVIM_RESPONSE" | jq -r '.result.root_pane.pane_id')
+herdr pane run "$NVIM_PANE" "nvim ." 2>&1 || warn "nvim launch failed"
+
+# --- sh (bash) tab ---
+
+SH_RESPONSE=$(herdr tab create --workspace "$WORKSPACE_ID" --label sh --cwd "$WT_DIR" 2>&1) || die "sh tab create failed: $SH_RESPONSE"
+# sh tab just has the shell — no command to run
+
+# --- focus the workspace (herdr worktree create --focus already does this) ---
+
+herdr workspace focus "$WORKSPACE_ID" 2>&1 || true

@@ -50,6 +50,11 @@ o.bind("SUPER + SHIFT + K", "On-Screen Keyboard", "omarchy-shell shell toggle io
 -- The plugin flashes "Key visualizer on/off" in its own card on each toggle
 o.bind("SUPER + R", "Key visualizer", "omarchy-shell key-visualizer toggle")
 
+-- SUPER + N is free — create a herdr workspace with pi, lazygit, and nvim tabs
+o.bind("SUPER + N", "New dev workspace", "herdr-workspace-dev")
+
+o.bind("SUPER + CTRL + T", "btop", "foot btop")
+
 -- Change an existing binding by unbinding it first, then binding the key again.
 -- This example changes SUPER+SPACE from the launcher to the Omarchy root menu.
 -- hl.unbind("SUPER + SPACE")
