@@ -16,11 +16,30 @@ CONFIRM=true
 
 for arg; do
   case "$arg" in
+    --help|-h)
+      echo "herdr-prune — close unused herdr workspaces"
+      echo ""
+      echo "Scans /proc for running processes and closes workspaces"
+      echo "that have no process cwd inside them."  
+      echo ""
+      echo "Usage:"
+      echo "  herdr-prune              interactive (asks before closing)"
+      echo "  herdr-prune --dry-run    list candidates without closing"
+      echo "  herdr-prune -y           close immediately, no prompt"
+      echo ""
+      echo "Options:"
+      echo "  -h, --help       show this help"
+      echo "  --dry-run        show what would be pruned, don't close"
+      echo "  --keep-focused   preserve the focused workspace (default)"
+      echo "  --no-keep-focused  allow pruning the focused workspace"
+      echo "  -y, --yes        skip confirmation prompt"
+      exit 0
+      ;;
     --dry-run) DRY_RUN=true ; CONFIRM=false ;;
     --keep-focused) KEEP_FOCUSED=true ;;
     --no-keep-focused) KEEP_FOCUSED=false ;;
     --yes|-y) CONFIRM=false ;;
-    *) die "unknown option: $arg" ;;
+    *) die "unknown option: $arg (try --help)" ;;
   esac
 done
 
